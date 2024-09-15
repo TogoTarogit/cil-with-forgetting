@@ -2,19 +2,21 @@
 list_ewc_learn=(1)
 list_forget=(9)
 
-# テスト用のリスト
-# list_ewc_learn=(1)
-# list_forget=(0 1)
+# すべて実行する場合
+# list_ewc_learn=(0 1 2 3 4 5 6 7 8 9)
+# list_forget=(0 1 2 3 4 5 6 7 8 9)
 # ----------------------------------------------------
 # 実験設定
-cuda_num=1
+cuda_num=0
 # サンプルとして出力する画像の枚数
 # n_samples=1000
 n_samples=10000
-dataset="fashion"
-forgetting_method="random"
+dataset="mnist"
+# fasion or mnist
+forgetting_method="noise"
+# random or noise
 # yaml=$dataset".yaml"
-contents_discription="Sensors 定量評価用 saを適用した場合の結果保存を追加"
+contents_discription="first time tesSensors 定量評価用 saを適用した場合の結果保存を追加"
 # ----------------------------------
 
 # 結果保存用ディレクトリ
@@ -35,9 +37,12 @@ echo "experiment date: $(date "+%Y/%m/%d %H:%M:%S")" | tee -a $result_dir_name
 echo "experiment content: $contents_discription" | tee -a $result_dir_name
 echo "dataset:$dataset , forgetting method:$forgetting_method " | tee -a $result_dir_name
 # ファイルに変数の値を追記
-echo "CUDA Number: $cuda_num" >> $result_dir_name
-echo "Number of Samples: $n_samples" >> $result_dir_name
+echo "CUDA Number: $cuda_num" | tee -a $result_dir_name
+echo "Number of Samples: $n_samples" | tee -a $result_dir_name
 
+# train classifier (need to train first time)
+# NEED TO FIX (select dataset)
+CUDA_VISIBLE_DEVICES="$cuda_num" python train_classifier.py --data_path ./dataset
 
 # すべての組わせをループで回す
 for learn in ${list_ewc_learn[@]}; do
