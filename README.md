@@ -1,6 +1,6 @@
 # CIL with Forgetting
 
-This repository contains code for experimenting with Continual Learning (CIL) using Selective Amnesia (SA) methods on Variational Autoencoders (VAEs). The goal is to selectively forget certain classes in a trained VAE model while retaining the ability to generate other classes. We explore different forgetting methods such as Fine-tuning, Elastic Weight Consolidation (EWC), and Selective Amnesia (SA), and evaluate their effectiveness using a classifier.
+This repository contains code for experimenting with Continual Learning (CIL) with forgetting using Selective Amnesia (SA) on Variational Autoencoders (VAEs). The goal is to selectively forget certain classes in a trained VAE model while retaining the ability to generate other classes. We explore different CIL methods such as Fine-tuning and Elastic Weight Consolidation (EWC), and evaluate their effectiveness using a classifier.
 
 ## Requirements
 
@@ -16,25 +16,81 @@ pip install -r requirements.txt
 
 We use the MNIST or Fashion-MNIST datasets for training and evaluation. Set the `--dataset` argument to either `mnist` or `fashion` as needed.
 
+## Notes
+
+In the code, we use the words `noise` or `random`. The `random` refers to **embedding** as mentioned in the paper.
+
+## Automating Experiments
+
+To automate the entire process for various combinations of classes and forgetting methods, you can use the provided shell script `cil-with-forgetting.sh`.
+
+### Configuration
+
+Edit the script to set up the experiment parameters:
+
+```bash
+# List of classes to train on
+list_ewc_learn=(1)
+list_forget=(9)
+
+# Experiment settings
+cuda_num=1
+n_samples=10000
+dataset="mnist"  # or "fashion"
+forgetting_method="random"
+contents_description="Description of the experiment"
+```
+
+- `list_ewc_learn`: Classes to learn.
+- `list_forget`: Classes to forget.
+- `cuda_num`: GPU device number.
+- `n_samples`: Number of samples to generate for evaluation.
+- `dataset`: Dataset to use (`mnist` or `fashion`).
+- `forgetting_method`: Method used for forgetting (`random`, etc.).
+- `contents_description`: Description of the experiment for logging purposes.
+
+### Running the Script
+
+Make the script executable and run it:
+
+```bash
+chmod +x cil-with-forgetting.sh
+./cil-with-forgetting.sh
+```
+
+The script will:
+
+- Train VAEs for each class in `list_ewc_learn`, excluding the class to be forgotten.
+- Calculate the FIM for each trained VAE.
+- For each combination of classes to learn and forget, apply different forgetting methods:
+  - Fine-tuning
+  - EWC without SA
+  - SA only
+  - SA with Fine-tuning
+  - SA with EWC
+- Generate samples and evaluate them using the classifier.
+- Save the results and logs in a timestamped file in `results/text_results`.
+
+### Result Logging
+
+The results of the experiments will be saved in `results/text_results/YYYY_MM_DD_HHMMSS_mnist_forget_learn_test.txt`. This file contains:
+
+- The configuration of the experiment.
+- The directories of the saved models.
+- The evaluation results for each forgetting method.
+
 ## Experiment Workflow
 
-The typical workflow involves the following steps:
+If you prefer to run the steps manually, the typical workflow involves the following steps:
 
-1. **Train the Conditional VAE**: Train a conditional VAE on the dataset, optionally excluding certain classes $C_f$
-   .
+1. **Train the Conditional VAE**: Train a conditional VAE on the dataset, optionally excluding certain classes \( C_f \).
 2. **Calculate the Fisher Information Matrix (FIM)**: Compute the FIM for the trained VAE model, required for EWC.
 3. **Apply Forgetting Methods**: Apply different forgetting methods.
 4. **Learn with New Classes**: Train the model on new classes, excluding the forgotten classes with EWC and Fine-tuning.
 5. **Generate Samples**: Generate samples from the trained or modified VAE models.
 6. **Evaluate with Classifier**: Evaluate the performance of the models using a pre-trained classifier.
 
-We provide scripts to automate these steps for different combinations of classes to learn and forget. The `cil-with-forgetting` script automates the entire process, allowing you to run multiple experiments with different configurations.
-
-```bash
-bash cil-with-forgetting.sh
-```
-
-## Step-by-Step Instructions
+We provide scripts to automate these steps for different combinations of classes to learn and forget.
 
 ### 1. Training the Conditional VAE
 
@@ -76,7 +132,7 @@ Apply EWC to the VAE model:
 CUDA_VISIBLE_DEVICES="0" python train_ewc.py --ckpt_folder results/yyyy_mm_dd_hhmmss --removed_label 9 --dataset mnist
 ```
 
-#### 3.2 Proposed Method : Forgetting with Selective Amnesia (SA)
+#### 3.2 Proposed Method: Forgetting with Selective Amnesia (SA)
 
 Apply Selective Amnesia (SA) to the VAE model:
 
@@ -85,7 +141,7 @@ CUDA_VISIBLE_DEVICES="0" python train_forget.py --ckpt_folder results/yyyy_mm_dd
 ```
 
 - `--label_to_drop`: The label (class) to forget.
-- `--forgetting_method`: The method used for forgetting (e.g., `random`).
+- `--forgetting_method`: The method used for forgetting (`random` refers to **embedding** as mentioned in the paper).
 - `--embedding_label`: The label used for embedding during SA.
 
 ##### SA with Fine-tuning
@@ -96,7 +152,7 @@ First, apply SA as above, then fine-tune the SA model:
 # Apply SA
 CUDA_VISIBLE_DEVICES="0" python train_forget.py --ckpt_folder results/yyyy_mm_dd_hhmmss --label_to_drop 9 --lmbda 100 --forgetting_method random --dataset mnist --embedding_label 1
 
-# and then Fine-tune the SA model
+# Then Fine-tune the SA model
 CUDA_VISIBLE_DEVICES="0" python train_finetuning.py --ckpt_folder results/yyyy_mm_dd_hhmmss_sa --removed_label 9 --dataset mnist
 ```
 
@@ -143,65 +199,6 @@ CUDA_VISIBLE_DEVICES="0" python evaluate_with_classifier.py --sample_path result
 
 This command outputs metrics such as the average entropy and the average probability of the forgotten class, helping you assess the effectiveness of the forgetting method.
 
-## Automating Experiments
-
-To automate the entire process for various combinations of classes and forgetting methods, you can use the provided shell script `run_experiments.sh`.
-
-### Configuration
-
-Edit the script to set up the experiment parameters:
-
-```bash
-# List of classes to train on
-list_ewc_learn=(1)
-list_forget=(9)
-
-# Experiment settings
-cuda_num=1
-n_samples=10000
-dataset="mnist"  # or "fashion"
-forgetting_method="random"
-contents_discription="Description of the experiment"
-```
-
-- `list_ewc_learn`: Classes to learn.
-- `list_forget`: Classes to forget.
-- `cuda_num`: GPU device number.
-- `n_samples`: Number of samples to generate for evaluation.
-- `dataset`: Dataset to use (`mnist` or `fashion`).
-- `forgetting_method`: Method used for forgetting (`random`, etc.).
-- `contents_discription`: Description of the experiment for logging purposes.
-
-### Running the Script
-
-Make the script executable and run it:
-
-```bash
-chmod +x run_experiments.sh
-./run_experiments.sh
-```
-
-The script will:
-
-- Train VAEs for each class in `list_ewc_learn`, excluding the class to be forgotten.
-- Calculate the FIM for each trained VAE.
-- For each combination of classes to learn and forget, apply different forgetting methods:
-  - Fine-tuning
-  - EWC without SA
-  - SA only
-  - SA with Fine-tuning
-  - SA with EWC
-- Generate samples and evaluate them using the classifier.
-- Save the results and logs in a timestamped file in `results/text_results`.
-
-### Result Logging
-
-The results of the experiments will be saved in `results/text_results/YYYY_MM_DD_HHMMSS_mnist_forget_learn_test.txt`. This file contains:
-
-- The configuration of the experiment.
-- The directories of the saved models.
-- The evaluation results for each forgetting method.
-
 ## Notes
 
 - Replace `mnist` with `fashion` in the `--dataset` argument to use the Fashion-MNIST dataset.
@@ -231,11 +228,14 @@ The results of the experiments will be saved in `results/text_results/YYYY_MM_DD
 
 ---
 
-
 ## Citation
 
 If you use this code in your research, please cite:
 
 ```bibtex
-
+% Add relevant citation here
 ```
+
+---
+
+By rearranging the README, the section on automating experiments now appears earlier, allowing users to quickly understand how to run all experiments automatically using the provided shell script. This modification aligns with your request to bring the automation steps to the forefront of the documentation.
